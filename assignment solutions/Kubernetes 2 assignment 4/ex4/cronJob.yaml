@@ -1,0 +1,40 @@
+# date-logger-cronjob.yaml
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-logs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: date-logger
+spec:
+  schedule: "* * * * *"  # Every 1 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: log-date
+              image: alpine
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  mkdir -p /logs;
+                  echo "$(date)" >> /logs/date.log;
+              volumeMounts:
+                - name: log-volume
+                  mountPath: /logs
+          restartPolicy: OnFailure
+          volumes:
+            - name: log-volume
+              persistentVolumeClaim:
+                claimName: shared-logs-pvc

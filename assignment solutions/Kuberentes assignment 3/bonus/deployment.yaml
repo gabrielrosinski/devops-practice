@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: airflow-pod
+spec:
+  containers:
+    - name: airflow
+      image: airflow:latest
+      imagePullPolicy: Never
+      env:
+        - name: LOAD_EX
+          value: "y"
+      ports:
+        - containerPort: 9090

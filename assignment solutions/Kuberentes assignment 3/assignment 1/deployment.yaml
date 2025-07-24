@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-multi-container-pod
+spec:
+  containers:
+    - name: superset
+      image: superset:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 8080
+    - name: airflow
+      image: airflow:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 9090
