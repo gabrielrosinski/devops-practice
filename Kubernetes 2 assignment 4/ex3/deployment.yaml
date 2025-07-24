@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app-random
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flask-app-random
+  template:
+    metadata:
+      labels:
+        app: flask-app-random
+    spec:
+      containers:
+      - name: flask-app
+        image:  flask-app-random:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 200m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-service
+spec:
+  selector:
+    app: flask-app-random
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+  type: LoadBalancer
