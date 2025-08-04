@@ -2,5 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/Final project phase 1/QuakeWatch" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/Final project phase 2/QuakeWatch" vcs="Git" />
   </component>
 </project>
