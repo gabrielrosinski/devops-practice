@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "rest-app"
+version = "0.1.0"
+description = "FastAPI REST application for user management"
+authors = ["Your Name <your.email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pymysql = "1.1.1"
+requests = "2.31.0"
+fastapi = {extras = ["standard"], version = "0.116.1"}
+pydantic = "2.9.2"
+uvicorn = "0.32.0"
+selenium = "4.34.2"
+webdriver-manager = "4.0.2"
+pynput = "^1.8.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+terminal = "scripts:main"
+dev = "scripts:dev"
+test = "scripts:test"
+lint = "scripts:lint"

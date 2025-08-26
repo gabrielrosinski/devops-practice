@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",             // Runs the currently open Python file
+      "console": "integratedTerminal",  // Use the built-in terminal for input/output
+      "justMyCode": true                // Set to false if you want to step into libraries
+    }
+  ]
+}

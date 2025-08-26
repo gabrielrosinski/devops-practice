@@ -1,0 +1,52 @@
+helm create mychart
+helm template mychart ./
+helm upgrade -i myrelease ./
+
+https://artifacthub.io/ same as helm.sh -> charts
+
+kubectl get pods
+helm list
+
+To see what is the difference between the revision we need to use helm diff - https://github.com/databus23/helm-diff
+
+helm rollback myrelease 1
+
+# This is the way to use the large values defualt file and replace the 
+# only the values used in the new file values-prod.yaml
+helm upgrade -i myrealse -f values.yaml -f values-prod.yaml
+
+
+# This needs to be run above the charts folder (i.e in this case mychart)
+helm package mychart
+
+# How to login to dockerhub with helm
+helm registry login registry-1.docker.io -u avielb
+
+# Push
+helm push mychart-0.1.0.tgz oci://registry-1.docker.io/avielb
+
+# To pull yo need to go to dockerhub enter the needed repository there you pick the version
+# click copy on the pull command.
+
+helm history myrelease
+
+# This will get the compressed file and open it
+helm fetch --untar  oci://registry-1.docker.io/adamlor/mychart
+
+# you cant use variables in template files if they are not defined in _helpers.tpl
+
+helm get values adamapp --all
+helm get manifest adamapp
+
+# Installing Helm plugins
+helm plugin install https://github.com/databus23/helm-diff
+
+# helm lint check
+helm lint mychart
+
+# ymal check
+helm template myrelease mychart
+
+helm dep build
+
+# Any questions regarding helm - google <question> helm bitnami ()
