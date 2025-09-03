@@ -1,0 +1,9 @@
+build self hosted github actions runner: 
+examples: go to settings -> actions -> runners on your repo.
+https://github.com/EduardUsatchev/class-7/settings/actions/runners 
+# Dont forget to DISABLE unused workflows !!
+# to ahve the button to run the jobs manually add: workflow_dispatch under push.
+
+how to add secret to github actions
+
+settings => secretes and variables => actions => add secret
