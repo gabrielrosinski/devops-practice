@@ -63,7 +63,7 @@ async def get_user(user_id: int, conn = Depends(get_db)):
         cursor.close()
 
 @app.put("/users/{user_id}")
-async def update_user_name(user_id: int, conn = Depends(get_db)):
+async def update_user_name(user_id: int,user: User, conn = Depends(get_db)):
     cursor = conn.cursor()
     try:
         cursor.execute("UPDATE users SET user_name = %s, updated_at = NOW() WHERE id = %s", (user.user_name, user_id))

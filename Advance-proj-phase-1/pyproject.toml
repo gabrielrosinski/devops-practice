@@ -2,7 +2,6 @@
 name = "rest-app"
 version = "0.1.0"
 description = "FastAPI REST application for user management"
-authors = ["Your Name <your.email@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
