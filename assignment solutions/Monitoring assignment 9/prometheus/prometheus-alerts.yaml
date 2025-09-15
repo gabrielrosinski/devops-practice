@@ -1,0 +1,92 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: python-app-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus-stack  # Must match your Prometheus stack release name
+spec:
+  groups:
+  - name: python-app.rules
+    rules:
+    - alert: PythonAppRestartHigh
+      expr: |
+        increase(kube_pod_container_status_restarts_total{
+          namespace="app",
+          pod=~"kube-mon-demo-.*"
+        }[5m]) > 1
+      for: 0m
+      labels:
+        severity: warning
+        service: python-app
+        namespace: app
+      annotations:
+        summary: "Python application is restarting frequently"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in the last 5 minutes"
+        runbook_url: "https://example.com/runbook/python-app-restarts"
+
+    - alert: PythonAppDown
+      expr: |
+        kube_deployment_status_replicas_available{
+          namespace="app",
+          deployment="kube-mon-demo"
+        } == 0
+      for: 1m
+      labels:
+        severity: critical
+        service: python-app
+        namespace: app
+      annotations:
+        summary: "Python application is down"
+        description: "No replicas of deployment {{ $labels.deployment }} are available in namespace {{ $labels.namespace }}"
+        runbook_url: "https://example.com/runbook/python-app-down"
+
+    - alert: PythonAppPodCrashLooping
+      expr: |
+        rate(kube_pod_container_status_restarts_total{
+          namespace="app",
+          pod=~"kube-mon-demo-.*"
+        }[15m]) * 60 * 15 > 5
+      for: 2m
+      labels:
+        severity: critical
+        service: python-app
+        namespace: app
+      annotations:
+        summary: "Python application pod is crash looping"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is crash looping with {{ $value }} restarts in 15 minutes"
+        runbook_url: "https://example.com/runbook/python-app-crashloop"
+
+    - alert: PythonAppHighMemoryUsage
+      expr: |
+        container_memory_usage_bytes{
+          namespace="app",
+          pod=~"kube-mon-demo-.*",
+          container="kube-mon-demo"
+        } / container_spec_memory_limit_bytes > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        service: python-app
+        namespace: app
+      annotations:
+        summary: "Python application memory usage is high"
+        description: "Pod {{ $labels.pod }} memory usage is {{ $value | humanizePercentage }} of the limit"
+        runbook_url: "https://example.com/runbook/python-app-memory"
+
+    - alert: PythonAppHighCPUUsage
+      expr: |
+        rate(container_cpu_usage_seconds_total{
+          namespace="app",
+          pod=~"kube-mon-demo-.*",
+          container="kube-mon-demo"
+        }[5m]) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        service: python-app
+        namespace: app
+      annotations:
+        summary: "Python application CPU usage is high"
+        description: "Pod {{ $labels.pod }} CPU usage is {{ $value | humanizePercentage }}"
+        runbook_url: "https://example.com/runbook/python-app-cpu"

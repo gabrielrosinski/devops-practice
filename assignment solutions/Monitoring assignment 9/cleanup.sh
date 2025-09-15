@@ -90,7 +90,17 @@ else
     echo -e "${YELLOW}⚠️  App namespace not found, skipping demo app cleanup${NC}"
 fi
 
-echo -e "${YELLOW}Step 3: Cleaning up Prometheus Stack...${NC}"
+echo -e "${YELLOW}Step 3: Cleaning up Prometheus alerts...${NC}"
+
+# Delete PrometheusRule for alerts
+if kubectl get prometheusrule python-app-alerts -n monitoring >/dev/null 2>&1; then
+    echo -e "${BLUE}Deleting Prometheus alert rules...${NC}"
+    kubectl delete prometheusrule python-app-alerts -n monitoring || true
+else
+    echo -e "${YELLOW}⚠️  Prometheus alert rules not found${NC}"
+fi
+
+echo -e "${YELLOW}Step 4: Cleaning up Prometheus Stack...${NC}"
 
 # Check if monitoring namespace exists and if Helm release exists
 if namespace_exists "monitoring" && command_exists helm; then
@@ -131,7 +141,39 @@ else
     fi
 fi
 
-echo -e "${YELLOW}Step 4: Cleaning up Docker images...${NC}"
+echo -e "${YELLOW}Step 5: Cleaning up ArgoCD...${NC}"
+
+# Check if ArgoCD namespace exists
+if namespace_exists "argocd"; then
+    echo -e "${BLUE}Cleaning up ArgoCD resources...${NC}"
+
+    # Delete ArgoCD Application
+    if kubectl get application python-monitoring-app -n argocd >/dev/null 2>&1; then
+        echo -e "${BLUE}Deleting ArgoCD Application...${NC}"
+        kubectl delete application python-monitoring-app -n argocd || true
+    fi
+
+    # Delete all ArgoCD resources
+    echo -e "${BLUE}Deleting all ArgoCD resources...${NC}"
+    kubectl delete all --all -n argocd || true
+    kubectl delete pvc --all -n argocd || true
+    kubectl delete secrets --all -n argocd || true
+    kubectl delete configmaps --all -n argocd || true
+
+    # Wait for pods to terminate
+    echo -e "${BLUE}Waiting for ArgoCD pods to terminate...${NC}"
+    kubectl wait --for=delete pods --all -n argocd --timeout=120s || true
+
+    # Delete ArgoCD namespace
+    echo -e "${BLUE}Deleting argocd namespace...${NC}"
+    kubectl delete namespace argocd || true
+
+    echo -e "${GREEN}✅ ArgoCD resources cleaned up${NC}"
+else
+    echo -e "${YELLOW}⚠️  ArgoCD namespace not found, skipping ArgoCD cleanup${NC}"
+fi
+
+echo -e "${YELLOW}Step 6: Cleaning up Docker images...${NC}"
 
 # Check if Docker is available
 if command_exists docker && docker info >/dev/null 2>&1; then
@@ -148,7 +190,7 @@ else
     echo -e "${YELLOW}⚠️  Docker not available, skipping image cleanup${NC}"
 fi
 
-echo -e "${YELLOW}Step 5: Cleaning up minikube (optional)...${NC}"
+echo -e "${YELLOW}Step 7: Cleaning up minikube (optional)...${NC}"
 
 # Check if minikube exists and is running
 if command_exists minikube; then
@@ -181,7 +223,7 @@ else
     echo -e "${YELLOW}⚠️  Minikube not found, skipping minikube cleanup${NC}"
 fi
 
-echo -e "${YELLOW}Step 6: Final verification...${NC}"
+echo -e "${YELLOW}Step 8: Final verification...${NC}"
 
 # Check for any remaining resources
 echo -e "${BLUE}Checking for remaining resources...${NC}"
@@ -192,6 +234,9 @@ if namespace_exists "app"; then
 fi
 if namespace_exists "monitoring"; then
     remaining_namespaces="$remaining_namespaces monitoring"
+fi
+if namespace_exists "argocd"; then
+    remaining_namespaces="$remaining_namespaces argocd"
 fi
 
 if [ -n "$remaining_namespaces" ]; then

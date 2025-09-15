@@ -204,10 +204,14 @@ wait_for_pods "monitoring" "app.kubernetes.io/name=prometheus" 180
 # Wait for Grafana pods
 wait_for_pods "monitoring" "app.kubernetes.io/name=grafana" 180
 
-echo -e "${YELLOW}Step 4: Applying ServiceMonitor...${NC}"
+echo -e "${YELLOW}Step 4: Applying ServiceMonitor and Alerts...${NC}"
 
 # Apply ServiceMonitor
 kubectl apply -f k8s/servicemonitor.yaml
+
+# Apply Prometheus alert rules
+echo -e "${BLUE}Applying Prometheus alert rules...${NC}"
+kubectl apply -f prometheus/prometheus-alerts.yaml
 
 echo -e "${YELLOW}Step 5: Installing ArgoCD...${NC}"
 
@@ -260,25 +264,54 @@ else
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ Successfully logged into ArgoCD${NC}"
 
-        # Create or update ArgoCD Application
-        echo -e "${BLUE}Creating ArgoCD Application...${NC}"
+        # Check if ArgoCD Application already exists
+        echo -e "${BLUE}Checking if ArgoCD Application exists...${NC}"
 
-        # Check if app already exists
         if $ARGOCD_CLI app get python-monitoring-app >/dev/null 2>&1; then
-            echo -e "${GREEN}✅ ArgoCD Application already exists${NC}"
+            echo -e "${GREEN}✅ ArgoCD Application 'python-monitoring-app' already exists${NC}"
+
+            # Get application status
+            APP_STATUS=$($ARGOCD_CLI app get python-monitoring-app -o json 2>/dev/null | grep -o '"sync":[^}]*' | grep -o '"status":"[^"]*' | cut -d'"' -f4)
+            APP_HEALTH=$($ARGOCD_CLI app get python-monitoring-app -o json 2>/dev/null | grep -o '"health":[^}]*' | grep -o '"status":"[^"]*' | cut -d'"' -f4)
+
+            echo -e "${BLUE}Application Status: ${APP_STATUS:-Unknown}${NC}"
+            echo -e "${BLUE}Application Health: ${APP_HEALTH:-Unknown}${NC}"
         else
+            echo -e "${YELLOW}ArgoCD Application 'python-monitoring-app' does not exist${NC}"
+            echo -e "${BLUE}Creating ArgoCD Application...${NC}"
+
             # Create the application using the YAML file
-            kubectl apply -f argocd.yaml
-            echo -e "${GREEN}✅ ArgoCD Application created${NC}"
+            if kubectl apply -f argocd.yaml >/dev/null 2>&1; then
+                echo -e "${GREEN}✅ ArgoCD Application 'python-monitoring-app' created successfully${NC}"
+
+                # Wait a moment for ArgoCD to register the new app
+                echo -e "${BLUE}Waiting for ArgoCD to register the new application...${NC}"
+                sleep 10
+
+                # Verify the app was created
+                if $ARGOCD_CLI app get python-monitoring-app >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ Application successfully registered in ArgoCD${NC}"
+                else
+                    echo -e "${YELLOW}⚠️ Application created but not yet visible in ArgoCD${NC}"
+                fi
+            else
+                echo -e "${RED}❌ Failed to create ArgoCD Application${NC}"
+                echo -e "${YELLOW}You may need to create it manually via ArgoCD UI${NC}"
+            fi
         fi
 
-        # Sync the application
+        # Try to sync the application with error handling
         echo -e "${BLUE}Syncing ArgoCD Application...${NC}"
-        $ARGOCD_CLI app sync python-monitoring-app
+        if $ARGOCD_CLI app sync python-monitoring-app 2>/dev/null; then
+            echo -e "${GREEN}✅ ArgoCD Application sync initiated${NC}"
 
-        # Wait for sync to complete
-        echo -e "${BLUE}Waiting for application sync to complete...${NC}"
-        $ARGOCD_CLI app wait python-monitoring-app --timeout 300
+            # Wait for sync to complete
+            echo -e "${BLUE}Waiting for application sync to complete...${NC}"
+            $ARGOCD_CLI app wait python-monitoring-app --timeout 300 2>/dev/null || echo -e "${YELLOW}⚠️ Sync may still be in progress${NC}"
+        else
+            echo -e "${YELLOW}⚠️ Could not sync ArgoCD application automatically${NC}"
+            echo -e "${BLUE}You can manually sync via ArgoCD UI or run: argocd app sync python-monitoring-app${NC}"
+        fi
 
         echo -e "${GREEN}✅ ArgoCD Application synced successfully${NC}"
     else

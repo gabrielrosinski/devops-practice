@@ -59,7 +59,9 @@ Use the curl commands shown in the deploy script output to test all endpoints:
   - `deployment.yaml` - Demo application deployment
   - `service.yaml` - Service to expose the demo app
   - `servicemonitor.yaml` - ServiceMonitor for Prometheus scraping
-- `prometheus.yml` - Prometheus configuration (for standalone setup)
+- `prometheus/` - Prometheus configurations
+  - `prometheus.yml` - Prometheus configuration (for standalone setup)
+  - `prometheus-alerts.yaml` - Alert rules for the monitoring stack
 - `grafana-dashboard.json` - Pre-configured Grafana dashboard
 
 ## Cleanup
