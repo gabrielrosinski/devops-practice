@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kube-mon-demo
+  namespace: app
+  labels:
+    release: prometheus-stack   # <-- must match your Prometheus Helm release label
+spec:
+  namespaceSelector:
+    matchNames: ["app"]         # namespace where the Service lives
+  selector:
+    matchLabels:
+      app: kube-mon-demo        # must match the Service's labels
+  endpoints:
+    - port: http                # must match the Service port *name*
+      path: /metrics
+      interval: 15s
+
