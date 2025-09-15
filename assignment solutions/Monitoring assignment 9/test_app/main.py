@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 import time, os
 
@@ -17,6 +17,11 @@ STARTUP_DELAY = float(os.getenv("STARTUP_DELAY_SECONDS", "0"))  # simulate slow 
 async def metrics_middleware(request: Request, call_next):
     path = request.url.path
     method = request.method
+
+    # Skip middleware for metrics endpoint to avoid content-type issues
+    if path == "/metrics":
+        return await call_next(request)
+
     start = time.time()
     INPROG.inc()
     try:
@@ -45,4 +50,4 @@ def readyz():
 
 @app.get("/metrics")
 def metrics():
-    return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
