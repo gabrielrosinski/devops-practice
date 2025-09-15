@@ -39,9 +39,15 @@ After deployment completes, use the provided commands to access:
 
 ### 3. Import Dashboard
 
+**IMPORTANT**: You must manually import the dashboard to see alerts and monitoring data:
+
 1. In Grafana, go to Dashboards → Import
 2. Upload the `grafana-dashboard.json` file from this directory
-3. The dashboard will show metrics from the demo application
+3. The dashboard will show metrics from the demo application including:
+   - HTTP request rates and latencies
+   - Application alerts & restart monitoring
+   - Status code distributions
+   - Endpoint usage patterns
 
 ### 4. Test the Application
 

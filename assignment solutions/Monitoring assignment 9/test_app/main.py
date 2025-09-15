@@ -51,3 +51,9 @@ def readyz():
 @app.get("/metrics")
 def metrics():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+@app.post("/crash")
+def crash():
+    """Endpoint to crash the application for testing alerts"""
+    import sys
+    sys.exit(1)
