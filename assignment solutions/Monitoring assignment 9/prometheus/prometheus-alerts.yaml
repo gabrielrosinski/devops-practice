@@ -9,6 +9,43 @@ spec:
   groups:
   - name: python-app.rules
     rules:
+    - alert: PythonAppHighCPUvsRequest
+      expr: |
+        sum by (namespace,pod) (
+          rate(container_cpu_usage_seconds_total{namespace="app",
+                pod=~"kube-mon-demo-.*"}[5m])
+              )
+        /
+        sum by (namespace,pod) (
+          kube_pod_container_resource_requests{resource="cpu",
+          namespace="app", pod=~"kube-mon-demo-.*", container="app"}
+        ) > 0.8
+      for: 1s
+      labels:
+        severity: warning
+        service: python-app
+        namespace: app
+      annotations:
+        summary: "High CPU vs request in {{ $labels.pod }}"
+        description: "CPU >80% of requested for 5m"
+
+    - alert: PythonAppHighMemoryvsLimit
+      expr: |
+        container_memory_working_set_bytes{namespace="app",
+        pod=~"kube-mon-demo-.*"}
+                /
+        on(namespace,pod)
+        kube_pod_container_resource_limits{resource="memory", namespace="app",
+        pod=~"kube-mon-demo-.*", container="app"} > 0.8
+      for: 1s
+      labels:
+        severity: warning
+        service: python-app
+        namespace: app
+      annotations:
+        summary: "High memory vs limit in {{ $labels.pod }}"
+        description: "Working set >80% of memory limit for 5m"
+
     - alert: PythonAppRestartHigh
       expr: |
         increase(kube_pod_container_status_restarts_total{
@@ -61,10 +98,9 @@ spec:
       expr: |
         container_memory_usage_bytes{
           namespace="app",
-          pod=~"kube-mon-demo-.*",
-          container="kube-mon-demo"
+          pod=~"kube-mon-demo-.*"
         } / container_spec_memory_limit_bytes > 0.8
-      for: 5m
+      for: 1s
       labels:
         severity: warning
         service: python-app
@@ -78,10 +114,9 @@ spec:
       expr: |
         rate(container_cpu_usage_seconds_total{
           namespace="app",
-          pod=~"kube-mon-demo-.*",
-          container="kube-mon-demo"
+          pod=~"kube-mon-demo-.*"
         }[5m]) > 0.8
-      for: 5m
+      for: 1s
       labels:
         severity: warning
         service: python-app
