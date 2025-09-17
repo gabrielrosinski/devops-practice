@@ -86,10 +86,16 @@ Use the curl commands shown in the deploy script output to test all endpoints:
   - `prometheus.yml` - Prometheus configuration (for standalone setup)
   - `prometheus-alerts.yaml` - Alert rules for the monitoring stack
 - `grafana-dashboard.json` - Pre-configured Grafana dashboard
-- `deploy.ps1` - Windows PowerShell deployment script with system requirements validation
-- `cleanup.ps1` - Windows PowerShell cleanup script
-- `healthcheck.ps1` - Windows real-time health monitoring and service discovery
-- `status.ps1` - Quick deployment status check with access credentials
+- `linux/` - Linux/macOS deployment scripts
+  - `deploy.sh` - Bash deployment script with system requirements validation
+  - `cleanup.sh` - Bash cleanup script
+  - `README.md` - Linux-specific documentation
+- `windows/` - Windows PowerShell deployment scripts
+  - `deploy.ps1` - PowerShell deployment script with auto-elevation and system validation
+  - `cleanup.ps1` - PowerShell cleanup script with enhanced error handling
+  - `healthcheck.ps1` - Real-time health monitoring and service discovery
+  - `status.ps1` - Quick deployment status check with access credentials
+  - `README.md` - Windows-specific documentation
 
 ## Cross-Platform Support
 
@@ -179,6 +185,36 @@ The Windows PowerShell scripts include enhanced features not available in the Li
 7. **Directory validation**: Scripts ensure they're running from the correct project directory
 
 ### Resource Requirements
-- **Minimum**: 2 CPU cores, 4GB RAM, 20GB disk space (enforced by Windows scripts)
+- **Minimum**: 2 CPU cores, 4GB RAM, 20GB disk space (enforced by both Linux and Windows scripts)
 - **Recommended**: 4+ CPU cores, 8GB+ RAM for optimal performance
 - **Windows Version**: Windows 10/11 with container support (Hyper-V or WSL2)
+
+## Recent Improvements
+
+### Enhanced Script Organization
+- **Platform-specific directories**: Scripts are now organized in `linux/` and `windows/` subdirectories for better organization
+- **Automatic directory navigation**: All scripts automatically detect and navigate to the correct project root directory
+- **Improved path handling**: Enhanced path detection for elevated PowerShell sessions and various execution contexts
+
+### Cross-Platform System Validation
+- **Linux/macOS**: Added comprehensive system requirements validation matching Windows functionality
+- **Resource enforcement**: Both platforms now enforce minimum system requirements (2+ CPU cores, 4GB+ RAM, 20GB+ disk space)
+- **Hard requirement stops**: Deployment will not proceed on systems that don't meet minimum viable resources
+
+### Windows PowerShell Improvements
+- **Unicode character removal**: Fixed all PowerShell parsing errors by replacing Unicode characters with ASCII equivalents
+- **Variable interpolation fixes**: Resolved PowerShell variable parsing issues in string interpolation
+- **Enhanced auto-elevation**: Improved administrator privilege elevation with proper window management
+- **No forced pauses**: Removed automatic "Press any key" prompts - users manually close windows when ready
+
+### ArgoCD Installation Enhancement
+- **Intelligent detection**: Significantly improved ArgoCD installation detection to prevent unnecessary reinstallations
+- **Multi-level validation**: Checks deployment status, service presence, and resource counts before reinstalling
+- **Context-aware installation**: Better handling of minikube vs Docker Desktop context switching
+- **Startup state handling**: Properly detects when ArgoCD is installed but still starting up
+
+### Error Handling and User Experience
+- **Robust path detection**: Multiple fallback methods for script path detection in various execution contexts
+- **Better error messages**: Enhanced error reporting with specific guidance for resolution
+- **Graceful degradation**: Improved handling of partial deployments and broken cluster states
+- **Directory validation**: Automatic detection and correction of working directory issues
