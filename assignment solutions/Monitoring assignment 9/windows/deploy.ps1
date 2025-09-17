@@ -133,7 +133,7 @@ function Test-SystemRequirements {
     }
 
     # Check CPU cores (HARD REQUIREMENT)
-    $cores = (Get-WmiObject -Class Win32_Processor | Measure-Object -Property NumberOfCores -Sum).Sum
+    $cores = (Get-CimInstance -ClassName Win32_Processor | Measure-Object -Property NumberOfCores -Sum).Sum
     if ($cores -lt $requirements.MinCores) {
         Exit-WithPause "INSUFFICIENT CPU CORES: Found $cores cores, but minimum $($requirements.MinCores) cores required. This system does not meet the minimum viable resource requirements. Please use a system with at least $($requirements.MinCores) CPU cores."
     } else {
@@ -141,7 +141,8 @@ function Test-SystemRequirements {
     }
 
     # Check RAM (HARD REQUIREMENT)
-    $totalRAMGB = [math]::Round((Get-WmiObject -Class Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
+    $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+    $totalRAMGB = [math]::Round($computerSystem.TotalPhysicalMemory / 1GB, 1)
     if ($totalRAMGB -lt $requirements.MinRAMGB) {
         Exit-WithPause "INSUFFICIENT RAM: Found ${totalRAMGB}GB, but minimum $($requirements.MinRAMGB)GB required. This system does not meet the minimum viable resource requirements. Please use a system with at least $($requirements.MinRAMGB)GB of RAM."
     } else {
@@ -149,7 +150,7 @@ function Test-SystemRequirements {
     }
 
     # Check disk space (HARD REQUIREMENT)
-    $systemDrive = Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DeviceID -eq $env:SystemDrive }
+    $systemDrive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$($env:SystemDrive)'"
     $freeDiskGB = [math]::Round($systemDrive.FreeSpace / 1GB, 1)
     if ($freeDiskGB -lt $requirements.MinDiskGB) {
         Exit-WithPause "INSUFFICIENT DISK SPACE: Found ${freeDiskGB}GB free, but minimum $($requirements.MinDiskGB)GB required. This system does not meet the minimum viable resource requirements. Please free up disk space or use a system with at least $($requirements.MinDiskGB)GB available."
@@ -158,8 +159,8 @@ function Test-SystemRequirements {
     }
 
     # Check Windows version
-    $osInfo = Get-ComputerInfo -Property WindowsProductName, WindowsVersion
-    Write-Info "Windows Version: $($osInfo.WindowsProductName) $($osInfo.WindowsVersion)"
+    $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
+    Write-Info "Windows Version: $($osInfo.Caption) $($osInfo.Version)"
 
     # Check virtualization support (may require elevation)
     try {
@@ -198,12 +199,37 @@ function Wait-ForDeployment {
         [int]$TimeoutSeconds = 300
     )
 
-    Write-Info "Waiting for deployment $Deployment in namespace $Namespace..."
+    Write-Info "Watching rollout for deployment $Deployment in namespace $Namespace (timeout: ${TimeoutSeconds}s)..."
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
+    # Ensure the deployment object exists before watching rollout
+    while ((Get-Date) -lt $deadline) {
+        kubectl get deployment $Deployment -n $Namespace --no-headers 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { break }
+        Start-Sleep -Seconds 5
+    }
+
     try {
-        kubectl wait --for=condition=available --timeout="${TimeoutSeconds}s" deployment/$Deployment -n $Namespace
-        Write-Success "Deployment $Deployment is ready"
+        kubectl rollout status deployment/$Deployment -n $Namespace --timeout="${TimeoutSeconds}s"
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "Deployment $Deployment is ready"
+        } else {
+            Write-Warning "Deployment $Deployment did not complete within ${TimeoutSeconds}s"
+        }
     } catch {
-        Write-Warning "Deployment $Deployment may still be starting up"
+        Write-Warning "Failed to watch rollout for deployment ${Deployment}: $($_.Exception.Message)"
+    }
+
+    try {
+        $statusJson = kubectl get deployment $Deployment -n $Namespace -o json 2>$null
+        if ($statusJson) {
+            $status = $statusJson | ConvertFrom-Json
+            $ready = if ($status.status.readyReplicas) { [int]$status.status.readyReplicas } else { 0 }
+            $desired = if ($status.spec.replicas) { [int]$status.spec.replicas } else { 0 }
+            Write-Info "Current deployment status: $ready/$desired replicas ready"
+        }
+    } catch {
+        Write-Info "Unable to retrieve deployment status for $Deployment"
     }
 }
 
@@ -215,12 +241,102 @@ function Wait-ForPods {
         [int]$TimeoutSeconds = 300
     )
 
-    Write-Info "Waiting for pods with label $Label in namespace $Namespace..."
+    Write-Info "Gathering pod status for label $Label in namespace $Namespace..."
+    try {
+        kubectl get pods -n $Namespace -l $Label
+    } catch {
+        Write-Warning "Unable to list pods for label $Label"
+    }
+
+    Write-Info "Waiting up to ${TimeoutSeconds}s for pods with label $Label to become Ready..."
     try {
         kubectl wait --for=condition=ready --timeout="${TimeoutSeconds}s" pods -l $Label -n $Namespace
-        Write-Success "Pods with label $Label are ready"
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "Pods with label $Label are ready"
+        } else {
+            Write-Warning "Pods with label $Label did not report Ready before the timeout"
+        }
     } catch {
         Write-Warning "Pods with label $Label may still be starting up"
+    }
+
+    try {
+        Write-Info "Latest pod status:"
+        kubectl get pods -n $Namespace -l $Label
+    } catch {
+        Write-Info "Unable to retrieve updated pod status"
+    }
+}
+
+function Ensure-Tool {
+    param(
+        [string]$Command,
+        [string]$DisplayName,
+        [bool]$IsAdmin,
+        [bool]$HasChoco,
+        [bool]$HasWinget,
+        [string]$ManualUrl = "",
+        [string]$ChocoPackage = "",
+        [string]$WingetPackage = "",
+        [switch]$Optional,
+        [ScriptBlock]$OnMissing
+    )
+
+    if (Test-CommandExists $Command) {
+        Write-Success "$DisplayName is installed"
+        return $true
+    }
+
+    $installed = $false
+
+    if ($IsAdmin -and ($HasChoco -or $HasWinget) -and ($ChocoPackage -or $WingetPackage)) {
+        try {
+            if ($HasChoco -and $ChocoPackage) {
+                Write-Info "Installing $DisplayName via Chocolatey..."
+                choco install $ChocoPackage -y | Out-Null
+            } elseif ($HasWinget -and $WingetPackage) {
+                Write-Info "Installing $DisplayName via winget..."
+                winget install $WingetPackage --accept-source-agreements --accept-package-agreements | Out-Null
+            }
+        } catch {
+            Write-Warning "Failed to install $DisplayName automatically: $($_.Exception.Message)"
+        }
+
+        if (Test-CommandExists $Command) {
+            Write-Success "$DisplayName is installed"
+            return $true
+        }
+    }
+
+    if ($OnMissing) {
+        try {
+            $result = & $OnMissing
+            if ($result) {
+                return $true
+            }
+        } catch {
+            Write-Warning "Custom installation for $DisplayName failed: $($_.Exception.Message)"
+        }
+
+        if (Test-CommandExists $Command) {
+            Write-Success "$DisplayName is installed"
+            return $true
+        }
+    }
+
+    if ($Optional) {
+        if ($ManualUrl) {
+            Write-Warning "$DisplayName not installed. Manual instructions: $ManualUrl"
+        } else {
+            Write-Warning "$DisplayName not installed."
+        }
+        return $false
+    }
+
+    if ($ManualUrl) {
+        Exit-WithPause "$DisplayName is not installed. Please install it manually: $ManualUrl"
+    } else {
+        Exit-WithPause "$DisplayName is not installed. Please install it before re-running the script."
     }
 }
 
@@ -263,23 +379,7 @@ function Install-Dependencies {
         }
     }
 
-    # Check Docker
-    if (-not (Test-CommandExists "docker")) {
-        if ($isAdmin -and ($hasChoco -or $hasWinget)) {
-            Write-Warning "Docker not found. Installing Docker Desktop..."
-            try {
-                if ($hasChoco) {
-                    choco install docker-desktop -y
-                } elseif ($hasWinget) {
-                    winget install Docker.DockerDesktop
-                }
-            } catch {
-                Write-Warning "Failed to install Docker Desktop automatically. Please install manually."
-            }
-        } else {
-            Exit-WithPause "Docker Desktop is not installed. Please install it manually from: https://www.docker.com/products/docker-desktop. After installation, enable Kubernetes in Docker Desktop settings."
-        }
-    }
+    $null = Ensure-Tool -Command "docker" -DisplayName "Docker Desktop" -IsAdmin:$isAdmin -HasChoco:$hasChoco -HasWinget:$hasWinget -ManualUrl "https://www.docker.com/products/docker-desktop" -ChocoPackage "docker-desktop" -WingetPackage "Docker.DockerDesktop"
 
     # Check if Docker is running
     try {
@@ -295,79 +395,27 @@ function Install-Dependencies {
         exit 1
     }
 
-    # Check kubectl
-    if (-not (Test-CommandExists "kubectl")) {
-        if ($isAdmin -and ($hasChoco -or $hasWinget)) {
-            Write-Warning "kubectl not found. Installing kubectl..."
-            try {
-                if ($hasChoco) {
-                    choco install kubernetes-cli -y
-                } elseif ($hasWinget) {
-                    winget install Kubernetes.kubectl
-                }
-            } catch {
-                Write-Warning "Failed to install kubectl automatically. Please install manually."
-            }
-        } else {
-            Write-Error "kubectl is not installed. Please install it manually:"
-            Write-Info "Download from: https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/"
-            exit 1
+    $null = Ensure-Tool -Command "kubectl" -DisplayName "kubectl" -IsAdmin:$isAdmin -HasChoco:$hasChoco -HasWinget:$hasWinget -ManualUrl "https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/" -ChocoPackage "kubernetes-cli" -WingetPackage "Kubernetes.kubectl"
+
+    $null = Ensure-Tool -Command "helm" -DisplayName "Helm" -IsAdmin:$isAdmin -HasChoco:$hasChoco -HasWinget:$hasWinget -ManualUrl "https://helm.sh/docs/intro/install/" -ChocoPackage "kubernetes-helm" -WingetPackage "Helm.Helm"
+
+    $argocdInstalled = Ensure-Tool -Command "argocd" -DisplayName "ArgoCD CLI" -IsAdmin:$isAdmin -HasChoco:$hasChoco -HasWinget:$hasWinget -ManualUrl "https://argo-cd.readthedocs.io/en/stable/cli_installation/" -ChocoPackage "argocd-cli" -Optional -OnMissing {
+        Write-Info "Installing ArgoCD CLI manually..."
+        $argocdUrl = "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-windows-amd64.exe"
+        $argocdPath = Join-Path $env:USERPROFILE "argocd.exe"
+        try {
+            Invoke-WebRequest -Uri $argocdUrl -OutFile $argocdPath -UseBasicParsing
+            Write-Success "ArgoCD CLI downloaded to $argocdPath"
+            Write-Warning "Add $env:USERPROFILE to your PATH to use 'argocd' command globally"
+            return $true
+        } catch {
+            Write-Warning "Failed to download ArgoCD CLI automatically: $($_.Exception.Message)"
+            return $false
         }
     }
 
-    if (Test-CommandExists "kubectl") {
-        Write-Success "kubectl is installed"
-    } else {
-        Write-Error "kubectl installation failed or not found in PATH"
-        exit 1
-    }
-
-    # Check Helm
-    if (-not (Test-CommandExists "helm")) {
-        if ($isAdmin -and ($hasChoco -or $hasWinget)) {
-            Write-Warning "Helm not found. Installing Helm..."
-            try {
-                if ($hasChoco) {
-                    choco install kubernetes-helm -y
-                } elseif ($hasWinget) {
-                    winget install Helm.Helm
-                }
-            } catch {
-                Write-Warning "Failed to install Helm automatically. Please install manually."
-            }
-        } else {
-            Write-Error "Helm is not installed. Please install it manually:"
-            Write-Info "Download from: https://helm.sh/docs/intro/install/"
-            exit 1
-        }
-    }
-
-    if (Test-CommandExists "helm") {
-        Write-Success "Helm is installed"
-    } else {
-        Write-Error "Helm installation failed or not found in PATH"
-        exit 1
-    }
-
-    # Check ArgoCD CLI
-    if (-not (Test-CommandExists "argocd")) {
-        Write-Warning "ArgoCD CLI not found. Installing ArgoCD CLI..."
-        if ($hasChoco) {
-            choco install argocd-cli -y
-        } else {
-            Write-Info "Installing ArgoCD CLI manually..."
-            $argocdUrl = "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-windows-amd64.exe"
-            $argocdPath = "$env:USERPROFILE\argocd.exe"
-            try {
-                Invoke-WebRequest -Uri $argocdUrl -OutFile $argocdPath
-                Write-Success "ArgoCD CLI downloaded to $argocdPath"
-                Write-Warning "Add $env:USERPROFILE to your PATH to use 'argocd' command globally"
-            } catch {
-                Write-Warning "Failed to download ArgoCD CLI automatically"
-            }
-        }
-    } else {
-        Write-Success "ArgoCD CLI is installed"
+    if (-not $argocdInstalled) {
+        Write-Warning "ArgoCD CLI was not detected on PATH. Use the manual instructions above if you need it."
     }
 
     # Check minikube (optional)
@@ -757,6 +805,8 @@ function Start-Deployment {
     $currentContext = kubectl config current-context 2>$null
     Write-Info "Current Kubernetes context: $currentContext"
 
+    $argoCDManifestUrl = "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml"
+
     # Check if ArgoCD namespace exists
     $argoCDNamespaceExists = $false
     try {
@@ -780,6 +830,8 @@ function Start-Deployment {
             if ($deploymentExists) {
                 Write-Info "ArgoCD server deployment found"
 
+                $argoCDInstalled = $true
+
                 # Now check if it's ready
                 $readyReplicas = kubectl get deployment argocd-server -n argocd -o jsonpath='{.status.readyReplicas}' 2>$null
                 $desiredReplicas = kubectl get deployment argocd-server -n argocd -o jsonpath='{.spec.replicas}' 2>$null
@@ -788,9 +840,9 @@ function Start-Deployment {
 
                 if ($readyReplicas -and $readyReplicas -gt 0) {
                     Write-Success "ArgoCD is already installed and running ($readyReplicas/$desiredReplicas replicas ready)"
-                    $argoCDInstalled = $true
                 } else {
-                    Write-Warning "ArgoCD deployment exists but is not ready yet (replicas: $readyReplicas/$desiredReplicas)"
+                    Write-Warning "ArgoCD deployment exists but is not ready yet (replicas: $readyReplicas/$desiredReplicas). Waiting for rollout instead of reinstalling."
+                    Write-Info "Tip: Run 'kubectl get pods -n argocd -w' in another window to watch pod progress."
 
                     # Check if it's just starting up by looking at services
                     try {
@@ -798,7 +850,6 @@ function Start-Deployment {
                         if ($services -gt 3) {  # ArgoCD typically has 4+ services
                             Write-Info "Found $services ArgoCD services - installation appears complete, may just be starting up"
                             Write-Info "Skipping reinstallation - waiting for existing deployment to become ready"
-                            $argoCDInstalled = $true
                         }
                     } catch {
                         Write-Info "Could not check ArgoCD services"
@@ -827,8 +878,10 @@ function Start-Deployment {
 
     if (-not $argoCDInstalled) {
         Write-Info "Installing ArgoCD in context: $currentContext"
+        Write-Info "Applying manifest: $argoCDManifestUrl"
+        Write-Info "(First-time installation can take 1-2 minutes while images download)"
         try {
-            kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+            kubectl apply -n argocd -f $argoCDManifestUrl
             Write-Success "ArgoCD installation initiated"
         } catch {
             Write-Warning "Failed to install ArgoCD: $($_.Exception.Message)"
