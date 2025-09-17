@@ -48,6 +48,75 @@ wait_for_pods() {
     kubectl wait --for=condition=ready --timeout=${timeout}s pods -l $label -n $namespace
 }
 
+# Function to check system requirements
+check_system_requirements() {
+    echo -e "${YELLOW}Step 0: Validating system requirements...${NC}"
+
+    local min_cores=2
+    local min_ram_gb=4
+    local min_disk_gb=20
+
+    # Check CPU cores
+    local cores
+    if command -v nproc >/dev/null 2>&1; then
+        cores=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1; then
+        cores=$(sysctl -n hw.ncpu 2>/dev/null || echo "1")
+    else
+        cores=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo "1")
+    fi
+
+    if [ "$cores" -lt "$min_cores" ]; then
+        echo -e "${RED}❌ INSUFFICIENT CPU CORES: Found $cores cores, but minimum $min_cores cores required.${NC}"
+        echo -e "${RED}This system does not meet the minimum viable resource requirements.${NC}"
+        echo -e "${RED}Please use a system with at least $min_cores CPU cores.${NC}"
+        exit 1
+    else
+        echo -e "${GREEN}✅ CPU cores requirement met: $cores cores (minimum: $min_cores)${NC}"
+    fi
+
+    # Check RAM
+    local total_ram_gb
+    if command -v free >/dev/null 2>&1; then
+        # Linux
+        total_ram_gb=$(free -g | awk 'NR==2{printf "%.1f", $2}')
+    elif command -v sysctl >/dev/null 2>&1; then
+        # macOS
+        local ram_bytes=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
+        total_ram_gb=$(echo "scale=1; $ram_bytes / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
+    else
+        total_ram_gb="0"
+    fi
+
+    if (( $(echo "$total_ram_gb < $min_ram_gb" | bc -l 2>/dev/null || echo "1") )); then
+        echo -e "${RED}❌ INSUFFICIENT RAM: Found ${total_ram_gb}GB, but minimum ${min_ram_gb}GB required.${NC}"
+        echo -e "${RED}This system does not meet the minimum viable resource requirements.${NC}"
+        echo -e "${RED}Please use a system with at least ${min_ram_gb}GB of RAM.${NC}"
+        exit 1
+    else
+        echo -e "${GREEN}✅ RAM requirement met: ${total_ram_gb}GB (minimum: ${min_ram_gb}GB)${NC}"
+    fi
+
+    # Check disk space
+    local free_disk_gb
+    free_disk_gb=$(df . | awk 'NR==2 {printf "%.1f", $4/1024/1024}')
+
+    if (( $(echo "$free_disk_gb < $min_disk_gb" | bc -l 2>/dev/null || echo "1") )); then
+        echo -e "${RED}❌ INSUFFICIENT DISK SPACE: Found ${free_disk_gb}GB free, but minimum ${min_disk_gb}GB required.${NC}"
+        echo -e "${RED}This system does not meet the minimum viable resource requirements.${NC}"
+        echo -e "${RED}Please free up disk space or use a system with at least ${min_disk_gb}GB available.${NC}"
+        exit 1
+    else
+        echo -e "${GREEN}✅ Disk space requirement met: ${free_disk_gb}GB free (minimum: ${min_disk_gb}GB)${NC}"
+    fi
+
+    echo -e "${GREEN}✅ ALL SYSTEM REQUIREMENTS MET - Proceeding with deployment${NC}"
+    echo -e "${BLUE}System meets minimum viable resources: $cores cores, ${total_ram_gb}GB RAM, ${free_disk_gb}GB free${NC}"
+}
+
+# Check system requirements first
+check_system_requirements
+
 echo -e "${YELLOW}Step 1: Checking dependencies...${NC}"
 
 # Check Docker

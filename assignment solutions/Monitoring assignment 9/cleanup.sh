@@ -2,7 +2,7 @@
 
 set -e  # Exit on any error
 
-echo "🧹 Starting Kubernetes Monitoring Stack Cleanup"
+echo "[*] Starting Kubernetes Monitoring Stack Cleanup"
 echo "==============================================="
 echo ""
 echo "This script cleans up resources deployed by deploy.sh"
@@ -36,22 +36,22 @@ echo -e "${YELLOW}Step 1: Checking prerequisites...${NC}"
 
 # Check kubectl
 if ! command_exists kubectl; then
-    echo -e "${RED}❌ kubectl is not installed. Cannot proceed with cleanup.${NC}"
+    echo -e "${RED}[-] kubectl is not installed. Cannot proceed with cleanup.${NC}"
     exit 1
 fi
 
 # Check Helm
 if ! command_exists helm; then
-    echo -e "${YELLOW}⚠️  Helm not found. Some cleanup operations may be skipped.${NC}"
+    echo -e "${YELLOW}[!] Helm not found. Some cleanup operations may be skipped.${NC}"
 fi
 
 # Test kubectl connectivity
 if ! kubectl cluster-info >/dev/null 2>&1; then
-    echo -e "${RED}❌ Cannot connect to Kubernetes cluster. Please ensure your cluster is running.${NC}"
+    echo -e "${RED}[-] Cannot connect to Kubernetes cluster. Please ensure your cluster is running.${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Prerequisites check passed${NC}"
+echo -e "${GREEN}[+] Prerequisites check passed${NC}"
 
 echo -e "${YELLOW}Step 2: Cleaning up demo application...${NC}"
 
@@ -85,9 +85,9 @@ if namespace_exists "app"; then
     echo -e "${BLUE}Deleting app namespace...${NC}"
     kubectl delete namespace app || true
 
-    echo -e "${GREEN}✅ Demo application resources cleaned up${NC}"
+    echo -e "${GREEN}[+] Demo application resources cleaned up${NC}"
 else
-    echo -e "${YELLOW}⚠️  App namespace not found, skipping demo app cleanup${NC}"
+    echo -e "${YELLOW}[!] App namespace not found, skipping demo app cleanup${NC}"
 fi
 
 echo -e "${YELLOW}Step 3: Cleaning up Prometheus alerts...${NC}"
@@ -97,7 +97,7 @@ if kubectl get prometheusrule python-app-alerts -n monitoring >/dev/null 2>&1; t
     echo -e "${BLUE}Deleting Prometheus alert rules...${NC}"
     kubectl delete prometheusrule python-app-alerts -n monitoring || true
 else
-    echo -e "${YELLOW}⚠️  Prometheus alert rules not found${NC}"
+    echo -e "${YELLOW}[!] Prometheus alert rules not found${NC}"
 fi
 
 echo -e "${YELLOW}Step 4: Cleaning up Prometheus Stack...${NC}"
@@ -112,9 +112,9 @@ if namespace_exists "monitoring" && command_exists helm; then
         echo -e "${BLUE}Waiting for monitoring pods to terminate...${NC}"
         kubectl wait --for=delete pods --all -n monitoring --timeout=120s || true
 
-        echo -e "${GREEN}✅ Prometheus stack uninstalled${NC}"
+        echo -e "${GREEN}[+] Prometheus stack uninstalled${NC}"
     else
-        echo -e "${YELLOW}⚠️  Prometheus stack Helm release not found${NC}"
+        echo -e "${YELLOW}[!] Prometheus stack Helm release not found${NC}"
     fi
 
     # Delete any remaining resources in monitoring namespace
@@ -128,13 +128,13 @@ if namespace_exists "monitoring" && command_exists helm; then
     echo -e "${BLUE}Deleting monitoring namespace...${NC}"
     kubectl delete namespace monitoring || true
 
-    echo -e "${GREEN}✅ Monitoring namespace cleaned up${NC}"
+    echo -e "${GREEN}[+] Monitoring namespace cleaned up${NC}"
 else
     if ! namespace_exists "monitoring"; then
-        echo -e "${YELLOW}⚠️  Monitoring namespace not found, skipping monitoring cleanup${NC}"
+        echo -e "${YELLOW}[!] Monitoring namespace not found, skipping monitoring cleanup${NC}"
     fi
     if ! command_exists helm; then
-        echo -e "${YELLOW}⚠️  Helm not found, manually cleaning monitoring namespace${NC}"
+        echo -e "${YELLOW}[!] Helm not found, manually cleaning monitoring namespace${NC}"
         if namespace_exists "monitoring"; then
             kubectl delete namespace monitoring || true
         fi
@@ -168,9 +168,9 @@ if namespace_exists "argocd"; then
     echo -e "${BLUE}Deleting argocd namespace...${NC}"
     kubectl delete namespace argocd || true
 
-    echo -e "${GREEN}✅ ArgoCD resources cleaned up${NC}"
+    echo -e "${GREEN}[+] ArgoCD resources cleaned up${NC}"
 else
-    echo -e "${YELLOW}⚠️  ArgoCD namespace not found, skipping ArgoCD cleanup${NC}"
+    echo -e "${YELLOW}[!] ArgoCD namespace not found, skipping ArgoCD cleanup${NC}"
 fi
 
 echo -e "${YELLOW}Step 6: Cleaning up Docker images...${NC}"
@@ -182,12 +182,12 @@ if command_exists docker && docker info >/dev/null 2>&1; then
     if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${IMAGE_NAME}$"; then
         echo -e "${BLUE}Removing Docker image: $IMAGE_NAME${NC}"
         docker rmi $IMAGE_NAME || true
-        echo -e "${GREEN}✅ Docker image removed${NC}"
+        echo -e "${GREEN}[+] Docker image removed${NC}"
     else
-        echo -e "${YELLOW}⚠️  Docker image $IMAGE_NAME not found${NC}"
+        echo -e "${YELLOW}[!] Docker image $IMAGE_NAME not found${NC}"
     fi
 else
-    echo -e "${YELLOW}⚠️  Docker not available, skipping image cleanup${NC}"
+    echo -e "${YELLOW}[!] Docker not available, skipping image cleanup${NC}"
 fi
 
 echo -e "${YELLOW}Step 7: Cleaning up minikube (optional)...${NC}"
@@ -201,12 +201,12 @@ if command_exists minikube; then
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}Stopping minikube...${NC}"
             minikube stop
-            echo -e "${GREEN}✅ Minikube stopped${NC}"
+            echo -e "${GREEN}[+] Minikube stopped${NC}"
         else
-            echo -e "${YELLOW}⚠️  Minikube left running${NC}"
+            echo -e "${YELLOW}[!] Minikube left running${NC}"
         fi
     else
-        echo -e "${YELLOW}⚠️  Minikube is not running${NC}"
+        echo -e "${YELLOW}[!] Minikube is not running${NC}"
     fi
 
     # Ask if user wants to delete minikube cluster entirely
@@ -215,12 +215,12 @@ if command_exists minikube; then
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}Deleting minikube cluster...${NC}"
         minikube delete
-        echo -e "${GREEN}✅ Minikube cluster deleted${NC}"
+        echo -e "${GREEN}[+] Minikube cluster deleted${NC}"
     else
-        echo -e "${YELLOW}⚠️  Minikube cluster preserved${NC}"
+        echo -e "${YELLOW}[!] Minikube cluster preserved${NC}"
     fi
 else
-    echo -e "${YELLOW}⚠️  Minikube not found, skipping minikube cleanup${NC}"
+    echo -e "${YELLOW}[!] Minikube not found, skipping minikube cleanup${NC}"
 fi
 
 echo -e "${YELLOW}Step 8: Final verification...${NC}"
@@ -240,17 +240,17 @@ if namespace_exists "argocd"; then
 fi
 
 if [ -n "$remaining_namespaces" ]; then
-    echo -e "${YELLOW}⚠️  Some namespaces still exist: $remaining_namespaces${NC}"
+    echo -e "${YELLOW}[!] Some namespaces still exist: $remaining_namespaces${NC}"
     echo -e "${BLUE}This might be normal if they're in 'Terminating' state${NC}"
 else
-    echo -e "${GREEN}✅ All target namespaces have been removed${NC}"
+    echo -e "${GREEN}[+] All target namespaces have been removed${NC}"
 fi
 
 echo ""
-echo -e "${GREEN}🎉 Cleanup completed!${NC}"
+echo -e "${GREEN}[+] Cleanup completed!${NC}"
 echo "==================="
 echo ""
 echo -e "${YELLOW}Note:${NC} To redeploy the monitoring stack, run: ./deploy.sh"
 echo -e "${YELLOW}Note:${NC} If you see namespaces in 'Terminating' state, this is normal."
 echo ""
-echo -e "${GREEN}✅ Your cluster is now clean!${NC}"
+echo -e "${GREEN}[+] Your cluster is now clean!${NC}"
