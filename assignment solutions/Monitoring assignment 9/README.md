@@ -102,9 +102,10 @@ Use the curl commands shown in the deploy script output to test all endpoints:
 This project now supports both **Linux/macOS** and **Windows** environments with equivalent functionality.
 
 ### Linux/macOS Scripts
-- `linux/deploy.sh` - Bash deployment script
-- `linux/cleanup.sh` - Bash cleanup script
-- Manual monitoring via kubectl commands
+- `linux/deploy.sh` - Bash deployment script with system requirements validation
+- `linux/cleanup.sh` - Bash cleanup script with comprehensive resource removal
+- `linux/status.sh` - Quick deployment status check with credentials
+- `linux/healthcheck.sh` - Real-time health monitoring and service discovery
 
 ### Windows PowerShell Scripts
 - `windows\deploy.ps1` - Full deployment with auto-elevation and system validation
@@ -139,7 +140,34 @@ windows\healthcheck.ps1 -Continuous -RefreshSeconds 5  # Custom refresh rate
 ```
 
 ### Linux/macOS Monitoring
-Monitor service health manually using kubectl commands or the provided deployment script output.
+Enhanced monitoring tools now available for Linux/macOS:
+
+#### Quick Status Check
+Get deployment status, service URLs, and credentials:
+
+```bash
+linux/status.sh
+```
+
+Shows:
+- Component deployment status (replicas ready)
+- Service access URLs and port-forward commands
+- Usernames and passwords for Grafana and ArgoCD
+- Quick launch commands for all services
+
+#### Advanced Health Monitoring
+Real-time monitoring with detailed connectivity tests:
+
+```bash
+linux/healthcheck.sh                     # Single comprehensive health check
+linux/healthcheck.sh --show-commands     # Display all access commands and credentials
+linux/healthcheck.sh --test-connectivity # Test localhost port connectivity
+linux/healthcheck.sh --continuous        # Continuous monitoring (10s refresh)
+linux/healthcheck.sh --continuous --refresh 5  # Custom refresh rate
+```
+
+#### Manual Monitoring
+You can also monitor service health manually using kubectl commands as shown in the deployment script output.
 
 ## Cleanup
 
@@ -195,6 +223,7 @@ The Windows PowerShell scripts include enhanced features not available in the Li
 - **Platform-specific directories**: Scripts are now organized in `linux/` and `windows/` subdirectories for better organization
 - **Automatic directory navigation**: All scripts automatically detect and navigate to the correct project root directory
 - **Improved path handling**: Enhanced path detection for elevated PowerShell sessions and various execution contexts
+- **Cross-platform monitoring**: Both platforms now have equivalent monitoring and health check capabilities
 
 ### Cross-Platform System Validation
 - **Linux/macOS**: Added comprehensive system requirements validation matching Windows functionality

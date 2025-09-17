@@ -5,7 +5,7 @@
 [CmdletBinding()]
 param()
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 Write-Host "[*] Starting Kubernetes Monitoring Stack Cleanup (Windows)" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
@@ -44,12 +44,8 @@ function Test-KubectlConnectivity {
 # Function to check if namespace exists
 function Test-NamespaceExists {
     param([string]$Namespace)
-    try {
-        kubectl get namespace $Namespace -ErrorAction Stop | Out-Null
-        return $true
-    } catch {
-        return $false
-    }
+    kubectl get namespace $Namespace 2>$null | Out-Null
+    return $LASTEXITCODE -eq 0
 }
 
 # Function to check if helm release exists
@@ -137,67 +133,43 @@ function Start-Cleanup {
 
     Write-Step "Step 2: Cleaning up demo application..."
 
-    # Check if app namespace exists
+    # Try to clean up demo application resources, handling "not found" errors gracefully
+    Write-Info "Checking for demo application resources..."
+
+    # Delete ServiceMonitor first (ignore if not found)
+    Write-Info "Deleting ServiceMonitor..."
+    kubectl delete servicemonitor kube-mon-demo -n app --ignore-not-found=true 2>$null
+
+    # Delete service (ignore if not found)
+    Write-Info "Deleting demo app service..."
+    kubectl delete service kube-mon-demo -n app --ignore-not-found=true 2>$null
+
+    # Delete deployment (ignore if not found)
+    Write-Info "Deleting demo app deployment..."
+    kubectl delete deployment kube-mon-demo -n app --ignore-not-found=true 2>$null
+
+    # Wait for pods to terminate (only if namespace exists)
     if (Test-NamespaceExists "app") {
-        Write-Info "Deleting demo application resources..."
-
-        # Delete ServiceMonitor first
-        try {
-            kubectl get servicemonitor kube-mon-demo -n app -ErrorAction Stop | Out-Null
-            Write-Info "Deleting ServiceMonitor..."
-            kubectl delete servicemonitor kube-mon-demo -n app
-        } catch {
-            # ServiceMonitor doesn't exist, continue
-        }
-
-        # Delete service
-        try {
-            kubectl get service kube-mon-demo -n app -ErrorAction Stop | Out-Null
-            Write-Info "Deleting demo app service..."
-            kubectl delete service kube-mon-demo -n app
-        } catch {
-            # Service doesn't exist, continue
-        }
-
-        # Delete deployment
-        try {
-            kubectl get deployment kube-mon-demo -n app -ErrorAction Stop | Out-Null
-            Write-Info "Deleting demo app deployment..."
-            kubectl delete deployment kube-mon-demo -n app
-        } catch {
-            # Deployment doesn't exist, continue
-        }
-
-        # Wait for pods to terminate
         Write-Info "Waiting for pods to terminate..."
         try {
-            kubectl wait --for=delete pods -l app=kube-mon-demo -n app --timeout=60s
+            kubectl wait --for=delete pods -l app=kube-mon-demo -n app --timeout=60s 2>$null
         } catch {
             Write-Warning "Some pods may still be terminating"
         }
 
         # Delete app namespace
         Write-Info "Deleting app namespace..."
-        try {
-            kubectl delete namespace app
-            Write-Success "Demo application resources cleaned up"
-        } catch {
-            Write-Warning "Failed to delete app namespace"
-        }
+        kubectl delete namespace app --ignore-not-found=true 2>$null
+        Write-Success "Demo application cleanup completed"
     } else {
-        Write-Warning "App namespace not found, skipping demo app cleanup"
+        Write-Warning "App namespace not found, demo app cleanup completed"
     }
 
     Write-Step "Step 3: Cleaning up Prometheus alerts..."
 
     # Delete PrometheusRule for alerts
-    try {
-        kubectl get prometheusrule python-app-alerts -n monitoring -ErrorAction Stop | Out-Null
-        Write-Info "Deleting Prometheus alert rules..."
-        kubectl delete prometheusrule python-app-alerts -n monitoring
-    } catch {
-        Write-Warning "Prometheus alert rules not found"
-    }
+    Write-Info "Deleting Prometheus alert rules..."
+    kubectl delete prometheusrule python-app-alerts -n monitoring --ignore-not-found=true 2>$null
 
     Write-Step "Step 4: Cleaning up Prometheus Stack..."
 
@@ -237,12 +209,8 @@ function Start-Cleanup {
 
         # Delete monitoring namespace
         Write-Info "Deleting monitoring namespace..."
-        try {
-            kubectl delete namespace monitoring
-            Write-Success "Monitoring namespace cleaned up"
-        } catch {
-            Write-Warning "Failed to delete monitoring namespace"
-        }
+        kubectl delete namespace monitoring --ignore-not-found=true 2>$null
+        Write-Success "Monitoring namespace cleaned up"
     } else {
         if (-not (Test-NamespaceExists "monitoring")) {
             Write-Warning "Monitoring namespace not found, skipping monitoring cleanup"
@@ -250,11 +218,7 @@ function Start-Cleanup {
         if (-not (Test-CommandExists "helm")) {
             Write-Warning "Helm not found, manually cleaning monitoring namespace"
             if (Test-NamespaceExists "monitoring") {
-                try {
-                    kubectl delete namespace monitoring
-                } catch {
-                    Write-Warning "Failed to delete monitoring namespace"
-                }
+                kubectl delete namespace monitoring --ignore-not-found=true 2>$null
             }
         }
     }
@@ -266,24 +230,15 @@ function Start-Cleanup {
         Write-Info "Cleaning up ArgoCD resources..."
 
         # Delete ArgoCD Application
-        try {
-            kubectl get application python-monitoring-app -n argocd -ErrorAction Stop | Out-Null
-            Write-Info "Deleting ArgoCD Application..."
-            kubectl delete application python-monitoring-app -n argocd
-        } catch {
-            # Application doesn't exist, continue
-        }
+        Write-Info "Deleting ArgoCD Application..."
+        kubectl delete application python-monitoring-app -n argocd --ignore-not-found=true 2>$null
 
         # Delete all ArgoCD resources
         Write-Info "Deleting all ArgoCD resources..."
-        try {
-            kubectl delete all --all -n argocd 2>$null
-            kubectl delete pvc --all -n argocd 2>$null
-            kubectl delete secrets --all -n argocd 2>$null
-            kubectl delete configmaps --all -n argocd 2>$null
-        } catch {
-            # Some resources may not exist, continue
-        }
+        kubectl delete all --all -n argocd --ignore-not-found=true 2>$null
+        kubectl delete pvc --all -n argocd --ignore-not-found=true 2>$null
+        kubectl delete secrets --all -n argocd --ignore-not-found=true 2>$null
+        kubectl delete configmaps --all -n argocd --ignore-not-found=true 2>$null
 
         # Wait for pods to terminate
         Write-Info "Waiting for ArgoCD pods to terminate..."
@@ -295,12 +250,8 @@ function Start-Cleanup {
 
         # Delete ArgoCD namespace
         Write-Info "Deleting argocd namespace..."
-        try {
-            kubectl delete namespace argocd
-            Write-Success "ArgoCD resources cleaned up"
-        } catch {
-            Write-Warning "Failed to delete argocd namespace"
-        }
+        kubectl delete namespace argocd --ignore-not-found=true 2>$null
+        Write-Success "ArgoCD resources cleaned up"
     } else {
         Write-Warning "ArgoCD namespace not found, skipping ArgoCD cleanup"
     }
@@ -311,13 +262,13 @@ function Start-Cleanup {
     if ((Test-CommandExists "docker") -and (docker info 2>$null)) {
         $imageName = "your-dockerhub/kube-mon-demo:0.1"
 
-        $imageExists = docker images --format "table {{.Repository}}:{{.Tag}}" | Select-String $imageName
+        $imageExists = docker images --format "table {{.Repository}}:{{.Tag}}" 2>$null | Select-String $imageName
         if ($imageExists) {
             Write-Info "Removing Docker image: $imageName"
-            try {
-                docker rmi $imageName
+            docker rmi $imageName 2>$null
+            if ($LASTEXITCODE -eq 0) {
                 Write-Success "Docker image removed"
-            } catch {
+            } else {
                 Write-Warning "Failed to remove Docker image"
             }
         } else {
@@ -450,10 +401,4 @@ function Start-Cleanup {
 }
 
 # Run the cleanup
-try {
-    Start-Cleanup
-} catch {
-    Write-Error "Cleanup failed: $($_.Exception.Message)"
-    Write-Info "Check the error messages above for details."
-    exit 1
-}
+Start-Cleanup
