@@ -24,12 +24,12 @@ This project demonstrates Kubernetes monitoring using Prometheus and Grafana wit
 
 **Linux/macOS:**
 ```bash
-./deploy.sh
+linux/deploy.sh
 ```
 
 **Windows:**
 ```powershell
-.\deploy.ps1
+windows\deploy.ps1
 ```
 
 **Note**: The scripts are automatically executable when cloned from the Git repository.
@@ -52,7 +52,7 @@ After deployment completes, use the provided commands to access:
 **Demo App**: Port-forward and open http://localhost:8000
 **ArgoCD**: Port-forward and open https://localhost:8080 (credentials shown in deploy output)
 
-**Windows users**: Use `.\healthcheck.ps1 -ShowCommands` to get all access commands and credentials.
+**Windows users**: Use `windows\healthcheck.ps1 -ShowCommands` to get all access commands and credentials.
 
 ### 3. Import Dashboard
 
@@ -96,15 +96,15 @@ Use the curl commands shown in the deploy script output to test all endpoints:
 This project now supports both **Linux/macOS** and **Windows** environments with equivalent functionality.
 
 ### Linux/macOS Scripts
-- `./deploy.sh` - Bash deployment script
-- `./cleanup.sh` - Bash cleanup script
+- `linux/deploy.sh` - Bash deployment script
+- `linux/cleanup.sh` - Bash cleanup script
 - Manual monitoring via kubectl commands
 
 ### Windows PowerShell Scripts
-- `.\deploy.ps1` - Full deployment with auto-elevation and system validation
-- `.\cleanup.ps1` - Comprehensive cleanup with minikube reset options
-- `.\healthcheck.ps1` - Real-time monitoring dashboard
-- `.\status.ps1` - Quick status check with credentials
+- `windows\deploy.ps1` - Full deployment with auto-elevation and system validation
+- `windows\cleanup.ps1` - Comprehensive cleanup with minikube reset options
+- `windows\healthcheck.ps1` - Real-time monitoring dashboard
+- `windows\status.ps1` - Quick status check with credentials
 
 ## Service Status and Monitoring
 
@@ -112,7 +112,7 @@ This project now supports both **Linux/macOS** and **Windows** environments with
 Get deployment status, service URLs, and credentials:
 
 ```powershell
-.\status.ps1
+windows\status.ps1
 ```
 
 Shows:
@@ -125,11 +125,11 @@ Shows:
 Real-time monitoring with detailed connectivity tests:
 
 ```powershell
-.\healthcheck.ps1                     # Single comprehensive health check
-.\healthcheck.ps1 -ShowCommands       # Display all access commands and credentials
-.\healthcheck.ps1 -TestConnectivity   # Test localhost port connectivity
-.\healthcheck.ps1 -Continuous         # Continuous monitoring (10s refresh)
-.\healthcheck.ps1 -Continuous -RefreshSeconds 5  # Custom refresh rate
+windows\healthcheck.ps1                     # Single comprehensive health check
+windows\healthcheck.ps1 -ShowCommands       # Display all access commands and credentials
+windows\healthcheck.ps1 -TestConnectivity   # Test localhost port connectivity
+windows\healthcheck.ps1 -Continuous         # Continuous monitoring (10s refresh)
+windows\healthcheck.ps1 -Continuous -RefreshSeconds 5  # Custom refresh rate
 ```
 
 ### Linux/macOS Monitoring
@@ -139,12 +139,12 @@ Monitor service health manually using kubectl commands or the provided deploymen
 
 **Linux/macOS:**
 ```bash
-./cleanup.sh
+linux/cleanup.sh
 ```
 
 **Windows:**
 ```powershell
-.\cleanup.ps1
+windows\cleanup.ps1
 ```
 
 This will remove all deployed resources including the demo app, Prometheus stack, namespaces, and Docker images.
@@ -173,8 +173,8 @@ The Windows PowerShell scripts include enhanced features not available in the Li
 1. **PowerShell execution policy**: Run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` if scripts are blocked
 2. **WSL2 backend**: If Hyper-V is not available, Docker Desktop will use WSL2 backend automatically
 3. **Chocolatey installation**: The script will install Chocolatey if package managers are missing
-4. **System requirements**: Use `.\deploy.ps1` to check if your system meets minimum requirements
-5. **Service discovery**: Use `.\status.ps1` or `.\healthcheck.ps1 -ShowCommands` to get current service URLs and credentials
+4. **System requirements**: Use `windows\deploy.ps1` to check if your system meets minimum requirements
+5. **Service discovery**: Use `windows\status.ps1` or `windows\healthcheck.ps1 -ShowCommands` to get current service URLs and credentials
 6. **Minikube image loading**: Known Windows issue handled automatically with fallback to Docker Desktop
 7. **Directory validation**: Scripts ensure they're running from the correct project directory
 

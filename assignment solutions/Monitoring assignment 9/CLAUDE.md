@@ -10,14 +10,14 @@ This is a Kubernetes monitoring demonstration project that showcases a complete 
 
 ### Deployment
 **Linux/macOS:**
-- `./deploy.sh` - Automated deployment of the entire monitoring stack
-- `./cleanup.sh` - Complete cleanup of all deployed resources
+- `linux/deploy.sh` - Automated deployment of the entire monitoring stack
+- `linux/cleanup.sh` - Complete cleanup of all deployed resources
 
 **Windows:**
-- `.\deploy.ps1` - Enhanced PowerShell deployment with auto-elevation and system validation
-- `.\cleanup.ps1` - Comprehensive PowerShell cleanup with minikube reset options
-- `.\healthcheck.ps1` - Real-time health monitoring and service discovery
-- `.\status.ps1` - Quick deployment status check with credentials
+- `windows\deploy.ps1` - Enhanced PowerShell deployment with auto-elevation and system validation
+- `windows\cleanup.ps1` - Comprehensive PowerShell cleanup with minikube reset options
+- `windows\healthcheck.ps1` - Real-time health monitoring and service discovery
+- `windows\status.ps1` - Quick deployment status check with credentials
 
 ### Windows-Enhanced Scripts Features
 - **Auto-elevation**: Automatic administrator privilege request for dependency installation
@@ -34,12 +34,12 @@ This is a Kubernetes monitoring demonstration project that showcases a complete 
 - ArgoCD: `kubectl port-forward svc/argocd-server -n argocd 8080:443`
 
 ### Windows Service Monitoring
-- `.\status.ps1` - Quick status with URLs, credentials, and port-forward commands
-- `.\healthcheck.ps1` - Single comprehensive health check
-- `.\healthcheck.ps1 -ShowCommands` - Display all access commands and credentials
-- `.\healthcheck.ps1 -TestConnectivity` - Test localhost port connectivity
-- `.\healthcheck.ps1 -Continuous` - Real-time monitoring dashboard (10s refresh)
-- `.\healthcheck.ps1 -Continuous -RefreshSeconds 5` - Custom refresh rate
+- `windows\status.ps1` - Quick status with URLs, credentials, and port-forward commands
+- `windows\healthcheck.ps1` - Single comprehensive health check
+- `windows\healthcheck.ps1 -ShowCommands` - Display all access commands and credentials
+- `windows\healthcheck.ps1 -TestConnectivity` - Test localhost port connectivity
+- `windows\healthcheck.ps1 -Continuous` - Real-time monitoring dashboard (10s refresh)
+- `windows\healthcheck.ps1 -Continuous -RefreshSeconds 5` - Custom refresh rate
 
 ### Credentials Access
 **Manual (Linux/macOS):**
@@ -47,8 +47,8 @@ This is a Kubernetes monitoring demonstration project that showcases a complete 
 - ArgoCD admin password: `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d`
 
 **Automatic (Windows):**
-- `.\status.ps1` - Shows all credentials automatically
-- `.\healthcheck.ps1 -ShowCommands` - Displays credentials with access commands
+- `windows\status.ps1` - Shows all credentials automatically
+- `windows\healthcheck.ps1 -ShowCommands` - Displays credentials with access commands
 
 ## Architecture
 
@@ -107,8 +107,8 @@ The ServiceMonitor uses label selector `release: prometheus-stack` to match the 
 ### Cross-Platform Deployment Patterns
 
 **Standard Deployment Flow:**
-1. **Linux/macOS**: `./deploy.sh` → Manual monitoring → `./cleanup.sh`
-2. **Windows**: `.\deploy.ps1` → `.\status.ps1` or `.\healthcheck.ps1` → `.\cleanup.ps1`
+1. **Linux/macOS**: `linux/deploy.sh` → Manual monitoring → `linux/cleanup.sh`
+2. **Windows**: `windows\deploy.ps1` → `windows\status.ps1` or `windows\healthcheck.ps1` → `windows\cleanup.ps1`
 
 **Windows-Enhanced Deployment Features:**
 - **Pre-deployment validation**: Enforces minimum system requirements (hard stops)

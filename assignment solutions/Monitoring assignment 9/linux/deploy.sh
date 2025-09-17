@@ -2,8 +2,16 @@
 
 set -e  # Exit on any error
 
-echo "🚀 Starting Kubernetes Monitoring Stack Deployment"
+# Navigate to project root directory (parent of this script's directory)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
+echo "[*] Starting Kubernetes Monitoring Stack Deployment"
 echo "=================================================="
+echo "Script location: $SCRIPT_DIR"
+echo "Project root: $PROJECT_ROOT"
+echo ""
 
 # Colors for output
 RED='\033[0;31m'
@@ -227,8 +235,8 @@ if check_minikube_status; then
     minikube image load $IMAGE_NAME
 fi
 
-# Return to parent directory
-cd ..
+# Return to project root directory
+cd "$PROJECT_ROOT"
 
 echo -e "${BLUE}Applying remaining Kubernetes manifests...${NC}"
 
