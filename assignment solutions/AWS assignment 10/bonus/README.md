@@ -23,7 +23,6 @@ This project provides automated AWS EC2 infrastructure provisioning through a ba
 .
 ├── aws-config.env              # Environment configuration (credentials & parameters)
 ├── instance-auto-creation.sh   # Main automation script
-├── CLAUDE.md                   # Project guidance for Claude Code
 └── README.md                   # This file
 ```
 
