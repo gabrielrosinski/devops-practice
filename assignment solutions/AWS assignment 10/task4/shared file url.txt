@@ -1,0 +1,3 @@
+https://task4-2025-bucket.s3.us-east-1.amazonaws.com/devop+image.jpg
+
+https://task4-2025-bucket.s3.us-east-1.amazonaws.com/devop+image+v2.jpg

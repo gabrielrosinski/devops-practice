@@ -1,0 +1,29 @@
+# AWS Configuration Files - Never commit these!
+aws-config.env
+.env
+*.pem
+*.key
+
+# AWS CLI credentials
+.aws/credentials
+.aws/config
+
+# Environment files
+.env.local
+.env.production
+.env.development
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+CLAUDE.md
